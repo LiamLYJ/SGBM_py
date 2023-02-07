@@ -22,14 +22,9 @@ class Param:
         self.p2 = 150
         self.min_disparity = 0
         self.max_disparity = 64
+        self.super_pixel_enable = False
         self.check_unique_enable = True
-        self.unique_ratio = 0.01
-        self.check_lr_enable = True
-        self.check_lr_thres = 10
-        self.remove_speckles_enable = True
-        self.min_speckle_aera = 20
-        self.diff_speckle_value = 2
-        self.fill_hole_enable = True
+        self.unique_ratio = 0.1
         self.median_filter_enable = True
         self.filter_k_size= 5
 
@@ -318,12 +313,6 @@ class Model:
         if Direction.N in self.paths.paths:
             p.apply_async(self.aggregate_N, args=(height, width, path_id, cost_volume))
             path_id += 1
-        if Direction.S in self.paths.paths:
-            p.apply_async(self.aggregate_S, args=(height, width, path_id, cost_volume))
-            path_id += 1
-        if Direction.N in self.paths.paths:
-            p.apply_async(self.aggregate_N, args=(height, width, path_id, cost_volume))
-            path_id += 1
         if Direction.E in self.paths.paths:
             p.apply_async(self.aggregate_E, args=(height, width, path_id, cost_volume))
             path_id += 1
@@ -347,13 +336,43 @@ class Model:
 
         return get_shared_array("shared_aggregation")
 
+    def index_select_2d(self, data, index):
+        H, W, _ = data.shape
+        res = np.zeros([H, W])
+        for y in range(H):
+            for x in range(W):
+                res[y, x] = data[y, x, index[y, x]]
+        return res
+
     def compute_disparity(self, aggregation_volume):
         volume = np.sum(aggregation_volume, axis=3)
-        disparity_map = np.argmin(volume, axis=2)
+        min_idx = np.argmin(volume, axis=2)
+
+        delta = np.zeros_like(min_idx)
+        _, _, C = volume.shape
+        if self.param.super_pixel_enable:
+            idx1 = np.clip(min_idx - 1, a_min=0, a_max=C-1)
+            idx2 = np.clip(min_idx + 1, a_min=0, a_max=C-1)
+            cost0 = self.index_select_2d(volume, min_idx)
+            cost1 = self.index_select_2d(volume, idx1)
+            cost2 = self.index_select_2d(volume, idx2)
+
+            mask = (cost1 + cost2 - 2*cost0) != 0
+            delta[mask] = (cost1[mask] - cost2[mask]) / (2 * (cost1[mask] + cost2[mask] - 2*cost0[mask]))
+            
+        disparity_map = min_idx + delta + self.param.min_disparity
+        if self.param.check_unique_enable:
+            val_min = np.min(volume, axis=2)
+            H, W = min_idx.shape
+            for y in range(H):
+                for x in range(W):
+                    volume[y, x, min_idx[y, x]] = 2**31
+            val_second_min =  np.min(volume, axis=2)
+            mask = (val_min - val_second_min) < (val_min * self.param.unique_ratio)
+
+            disparity_map[mask] = 0
 
         return disparity_map
-       
-
 
     def process(self):
         left_enc = self.encode_img(self.left)
@@ -372,7 +391,7 @@ class Model:
         disparity = (255.0 * disparity / self.param.max_disparity).astype(np.uint8)
 
         if self.param.median_filter_enable:
-            disparity = cv2.medianBlur(disparity, self.param.filter_win_size)
+            disparity = cv2.medianBlur(disparity, self.param.filter_k_size)
 
         # cv2.imwrite(self.data_config["out_fn"], disparity)
         cv2.imwrite("check.png", disparity)

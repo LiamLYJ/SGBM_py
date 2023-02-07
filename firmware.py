@@ -55,29 +55,21 @@ class Firmware:
             param.leading_diag_downup = False
             param.second_diag_updown = False
             param.second_diag_downup = False
-            param.check_unique_enable = False
-            param.check_lr_enable = False
-            param.remove_speckles_enable = False
-            param.fill_hole_enable = False
             param.median_filter_enable = False
+            param.super_pixel_enable = False
+            param.check_unique_enable = False
         else:
             param.leading_diag_updown = True
             param.leading_diag_downup = True 
             param.second_diag_updown = True 
             param.second_diag_downup = True 
-            param.check_unique_enable = True 
-            param.check_lr_enable = True 
-            param.remove_speckles_enable = True 
-            param.fill_hole_enable = True 
             param.median_filter_enable = True 
+            param.super_pixel_enable = True
+            param.check_unique_enable = True
 
         if self.config['dense_mode'] == Dense_mode.MODE_0:
             param.p1 = 5
             param.p2 = 50
-            param.unique_ratio = 0.01
-            param.check_lr_thres = 10
-            param.min_speckle_aera = 20
-            param.diff_speckle_value = 2
             param.filter_k_size = 5
             param.blur_k_size = 5
         else:
