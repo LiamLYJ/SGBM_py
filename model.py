@@ -368,7 +368,8 @@ class Model:
                 for x in range(W):
                     volume[y, x, min_idx[y, x]] = 2**31
             val_second_min =  np.min(volume, axis=2)
-            mask = (val_min - val_second_min) < (val_min * self.param.unique_ratio)
+            mask = (val_second_min - val_min) < (val_min * self.param.unique_ratio)
+            mask = np.bitwise_and(mask, val_second_min!=0)
 
             disparity_map[mask] = 0
 
@@ -393,5 +394,4 @@ class Model:
         if self.param.median_filter_enable:
             disparity = cv2.medianBlur(disparity, self.param.filter_k_size)
 
-        # cv2.imwrite(self.data_config["out_fn"], disparity)
-        cv2.imwrite("check.png", disparity)
+        cv2.imwrite(self.data_config["out_fn"], disparity)

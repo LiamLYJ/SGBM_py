@@ -30,10 +30,6 @@ class Dense_mode(IntEnum):
     MODE_3 = 3
     MODE_4 = 4
     MODE_5 = 5
-    MODE_6 = 6
-    MODE_7 = 7
-    MODE_8 = 8
-    MODE_9 = 9
 
 
 class Firmware:
@@ -50,13 +46,17 @@ class Firmware:
         param.right_left = True
         param.top_down = True
         param.down_top = True
+        param.filter_k_size = 5
+        param.blur_k_size = 5
+
+        param.unique_ratio = self.config["unique_ratio"]
+
         if self.config['process_mode'] == Process_mode.SPEED:
             param.leading_diag_updown = False
             param.leading_diag_downup = False
             param.second_diag_updown = False
             param.second_diag_downup = False
             param.median_filter_enable = False
-            param.super_pixel_enable = False
             param.check_unique_enable = False
         else:
             param.leading_diag_updown = True
@@ -64,17 +64,28 @@ class Firmware:
             param.second_diag_updown = True 
             param.second_diag_downup = True 
             param.median_filter_enable = True 
-            param.super_pixel_enable = True
             param.check_unique_enable = True
 
         if self.config['dense_mode'] == Dense_mode.MODE_0:
             param.p1 = 5
             param.p2 = 50
-            param.filter_k_size = 5
-            param.blur_k_size = 5
+        elif self.config['dense_mode'] == Dense_mode.MODE_1:
+            param.p1 = 15
+            param.p2 = 50
+        elif self.config['dense_mode'] == Dense_mode.MODE_2:
+            param.p1 = 25
+            param.p2 = 50
+        elif self.config['dense_mode'] == Dense_mode.MODE_3:
+            param.p1 = 5
+            param.p2 = 80
+        elif self.config['dense_mode'] == Dense_mode.MODE_4:
+            param.p1 = 15
+            param.p2 = 80
+        elif self.config['dense_mode'] == Dense_mode.MODE_5:
+            param.p1 = 25
+            param.p2 = 80
         else:
-            # TODO
-            pass
+            raise ValueError("invalid dense mode")
 
         if self.config['cost_mode'] == Cost_mode.SAD:
             param.cost_mode = "sad"
@@ -91,5 +102,7 @@ class Firmware:
             param.cost_k_size = 7
         else:
             param.cost_k_size = 9
+
+        param.super_pixel_enable = self.config["sub_pixel_enable"]
 
         return param

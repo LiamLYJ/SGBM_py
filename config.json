@@ -6,6 +6,7 @@
         "cost_mode": 1,
         "mask_mode": 3,
         "process_mode": 1,
+        "unique_ratio": 0,
         "sub_pixel_enable": 0
     },
     "data": {
