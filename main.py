@@ -3,6 +3,7 @@ import json
 
 from firmware import Firmware
 from model import Model
+import torch
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -12,12 +13,16 @@ if __name__ == "__main__":
 
     json_file = args.config_fn
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("device: ", device)
+
     with open(json_file, "r") as fn:
         json_data = json.load(fn)
+        print("load json fn: ", json_file)
 
         firware_ins = Firmware(json_data['model']) 
 
         param = firware_ins.render()
 
-        model_ins = Model(param, json_data['data']) 
+        model_ins = Model(param, json_data['data'], device=device) 
         model_ins.process()

@@ -5,6 +5,10 @@ import time
 from multiprocessing import Pool
 from share_array import *
 
+import torch
+import torch.nn.functional as F
+from  utils import filter2D, get_gaussian_kernel, get_time
+
 class Param:
     def __init__(self):
         self.cost_mode = "sad"
@@ -64,21 +68,25 @@ class Paths:
         self.size = len(self.paths)
 
 class Model:
-    def __init__(self, param, data_config):
+    def __init__(self, param, data_config, device):
         self.param = param
         self.data_config = data_config
 
         left_fn = data_config['left_fn']
         right_fn = data_config['right_fn']
 
-        self.left = cv2.imread(left_fn, 0)
-        self.right = cv2.imread(right_fn, 0)
+        self.left = torch.from_numpy(cv2.imread(left_fn, 0)).float()
+        print("load left img: ", left_fn)
+        self.right = torch.from_numpy(cv2.imread(right_fn, 0)).float()
+        print("load right img: ", right_fn)
 
         self.H, self.W = self.left.shape
         H, W = self.right.shape
         assert(self.H == H and self.W == W)
 
         self.paths = Paths(param)
+
+        self.device = device
 
     def find_center(self, img, y, x):
         pool = []
@@ -92,22 +100,42 @@ class Model:
         return center
 
     def encode_img(self, img):
-        img = cv2.GaussianBlur(img, (self.param.blur_k_size, self.param.blur_k_size), 0)
+        # img = cv2.GaussianBlur(img.numpy(), (self.param.blur_k_size, self.param.blur_k_size), 0)
+        # if self.param.cost_mode == "census" and (self.param.cost_k_size > 1):
+        #     # res = torch.zeros_like(img)
+        #     res = np.zeros_like(img)
+        #     rad = self.param.cost_k_size // 2
+        #     for y in range(rad, self.H - rad):
+        #         for x in range(rad, self.W - rad):
+        #             # center = img[y, x]
+        #             center = self.find_center(img, y, x)
+        #             val = 0
+        #             for yy in range(-rad, rad+1):
+        #                 for xx in range(-rad, rad+1):
+        #                     if (img[y+yy, x+xx] < center):
+        #                         val += 1
+        #                     val = (val << 1)
+        #             res[y, x] = val
+        #     img = res
+        # else:
+        #     assert(self.param.cost_mode == "sad")
+
+        kernel = get_gaussian_kernel(self.param.blur_k_size, channels=1).to(self.device)
+        img = img.to(self.device)
+        img = filter2D(img, kernel)
 
         if self.param.cost_mode == "census" and (self.param.cost_k_size > 1):
-            res = np.zeros_like(img)
+            res = torch.zeros_like(img).to(torch.int64)
+
             rad = self.param.cost_k_size // 2
-            for y in range(rad, self.H - rad):
-                for x in range(rad, self.W - rad):
-                    # center = img[y, x]
-                    center = self.find_center(img, y, x)
-                    val = 0
-                    for yy in range(-rad, rad+1):
-                        for xx in range(-rad, rad+1):
-                            if (img[y+yy, x+xx] < center):
-                                val += 1
-                            val <= 1 
-                    res[y, x] = val
+            h, w = res.shape
+            offsets = [(u, v) for u in range(self.param.cost_k_size) for v in range(self.param.cost_k_size) if not u==v==rad]
+
+            img_pad = F.pad(img, pad = (rad, rad, rad, rad), mode="constant", value=0)
+
+            for u, v in offsets:
+                res = (res << 1) | (img_pad[u:u+h, v:v+w] < img)
+            
             img = res
         else:
             assert(self.param.cost_mode == "sad")
@@ -115,24 +143,26 @@ class Model:
         return img
 
     def compute_cost(self, left, right):
+        # left = torch.from_numpy(left)
+        # right = torch.from_numpy(right)
+
         disp_range = self.param.max_disparity - self.param.min_disparity
-        costs = np.zeros([self.H, self.W, disp_range])
+        costs = torch.zeros([self.H, self.W, disp_range])
         rad =  self.param.cost_k_size // 2
 
         for d in range(disp_range):
-            right_cur = right.copy()
+            right_cur = right.clone()
             right_cur[:, (rad+d):(self.W-rad)] = right[:, rad:(self.W-rad-d)]
 
             if self.param.cost_mode == "census":
-                costs[..., d] = np.bitwise_xor(np.int64(left), np.int64(right_cur))
+                costs[..., d] = torch.bitwise_xor(left.to(torch.int64), right_cur.to(torch.int64))
             else:
-                abs_data = np.fabs(left - right_cur).astype(np.uint8)
-                weights = np.ones_like([self.param.cost_k_size, self.param.cost_k_size])
-                cost = cv2.filter2D(abs_data, -1, weights)
+                abs_data = torch.fabs(left - right_cur).astype(torch.uint8)
+                weights = torch.ones_like([self.param.cost_k_size, self.param.cost_k_size])
+                cost = filter2D(abs_data, weights)
                 costs[..., d] = cost
 
         return costs
-
 
     def get_indices(self, offset, dim, direction, height):
         """
@@ -376,16 +406,32 @@ class Model:
         return disparity_map
 
     def process(self):
+        print("encoding left...")
+        dawn = get_time()
         left_enc = self.encode_img(self.left)
+        dust = get_time()
+        print("encoded left takes: %f\n"%(dust - dawn))
+
+        print("encoding right...")
+        dawn = get_time()
         right_enc = self.encode_img(self.right)
+        dust = get_time()
+        print("encoded right takes: %f\n"%(dust - dawn))
 
+        print("computing cost...")
+        dawn = get_time()
         cost = self.compute_cost(left_enc, right_enc)
-        cost = cost.astype(np.uint32) 
+        dust = get_time()
+        print("computed cost takes: %f\n"%(dust - dawn))
+        cost = cost.to(torch.int64)
 
-        dawn = time.time()
+        #TODO make the below on GPU
+        cost = cost.numpy()
+        print("aggregating costs...")
+        dawn = get_time()
         # cost = np.load("left_cost_volume.npy")
         aggregation_volume = self.aggregate_costs(cost)
-        dust = time.time()
+        dust = get_time()
         print("aggregation takes time: %f\n"%(dust - dawn))
 
         disparity = self.compute_disparity(aggregation_volume)
