@@ -1,9 +1,12 @@
 import argparse
 import json
 
+import taichi as ti
+import torch
+
 from firmware import Firmware
 from model import Model
-import torch
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -14,7 +17,12 @@ if __name__ == "__main__":
     json_file = args.config_fn
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("device: ", device)
+    print("torch device: ", device)
+
+    if torch.cuda.is_available():
+        ti.init(arch=ti.cuda, device_memory_fraction=0.6)
+    else:
+        ti.init(arch=ti.cpu)
 
     with open(json_file, "r") as fn:
         json_data = json.load(fn)
