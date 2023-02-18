@@ -1,11 +1,13 @@
-import torch
 import math
-import torch.nn.functional as F
 import typing as T
 from typing import Optional
-
+from functools import wraps
 import math
 import time
+
+import torch
+import torch.nn.functional as F
+
 
 _Size2D = T.Union[int, T.Tuple[int, int]]
 
@@ -95,3 +97,21 @@ def get_time():
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     return time.time()
+
+
+def timeit(func):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        print(f"Function {func.__name__} starts")
+
+        result = func(*args, **kwargs)
+        
+        end_time = time.perf_counter()
+
+        total_time = end_time - start_time
+        print(f'Function {func.__name__}{args} {kwargs} Took {total_time:.4f} seconds')
+
+        return result
+
+    return timeit_wrapper

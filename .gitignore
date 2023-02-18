@@ -6,3 +6,4 @@ dataset
 res
 *.png
 *.json
+log.txt
