@@ -104,49 +104,49 @@ class Ti_SGBM:
 
     @ti.kernel
     def aggregate_NW2SE(self, minimum_cost: ti.types.ndarray(), cost_volume: ti.types.ndarray(), p1: ti.f32, p2: ti.f32):
-        for y, x in ti.ndrange((1, self.height), (1, self.width)):
-            if x > y:
-                continue
-            min_cost_last = 1.0 * 2**30
-            for d in range(self.disparities):
-                min_cost_last = ti.min(min_cost_last, minimum_cost[y-1, x-1, d])
+        for line in range(self.height - 1):
+            for x in range(1, self.height - 1 - line):
+                y = x + line
+                min_cost_last = 1.0 * 2**30
+                for d in range(self.disparities):
+                    min_cost_last = ti.min(min_cost_last, minimum_cost[y-1, x-1, d])
 
-            for d in range(self.disparities):
-                l1 = minimum_cost[y-1, x-1, d]
+                for d in range(self.disparities):
+                    l1 = minimum_cost[y-1, x-1, d]
 
-                d_minus = ti.max(d-1, 0) 
-                d_plus = ti.min(d+1, self.disparities - 1)
-                l2 = minimum_cost[y-1, x-1, d_minus] + p1
-                l3 = minimum_cost[y-1, x-1, d_plus] + p1
+                    d_minus = ti.max(d-1, 0) 
+                    d_plus = ti.min(d+1, self.disparities - 1)
+                    l2 = minimum_cost[y-1, x-1, d_minus] + p1
+                    l3 = minimum_cost[y-1, x-1, d_plus] + p1
 
-                l4 = min_cost_last + p2
+                    l4 = min_cost_last + p2
 
-                tmp_a = ti.min(l1, l2)
-                tmp_b = ti.min(l3, l4)
-                tmp = ti.min(tmp_a, tmp_b)
-                minimum_cost[y, x, d] = cost_volume[y, x, d] + tmp - min_cost_last
+                    tmp_a = ti.min(l1, l2)
+                    tmp_b = ti.min(l3, l4)
+                    tmp = ti.min(tmp_a, tmp_b)
+                    minimum_cost[y, x, d] = cost_volume[y, x, d] + tmp - min_cost_last
 
-        for x, y in ti.ndrange((1, self.width), (1, self.height)):
-            if y > x:
-                continue
-            min_cost_last = 1.0 * 2**30
-            for d in range(self.disparities):
-                min_cost_last = ti.min(min_cost_last, minimum_cost[y-1, x-1, d])
+        for line in range(self.width - 2):
+            for y in range(1, self.width - 1 - line):
+                x = y + line + 1
+                min_cost_last = 1.0 * 2**30
+                for d in range(self.disparities):
+                    min_cost_last = ti.min(min_cost_last, minimum_cost[y-1, x-1, d])
 
-            for d in range(self.disparities):
-                l1 = minimum_cost[y-1, x-1, d]
+                for d in range(self.disparities):
+                    l1 = minimum_cost[y-1, x-1, d]
 
-                d_minus = ti.max(d-1, 0) 
-                d_plus = ti.min(d+1, self.disparities - 1)
-                l2 = minimum_cost[y-1, x-1, d_minus] + p1
-                l3 = minimum_cost[y-1, x-1, d_plus] + p1
+                    d_minus = ti.max(d-1, 0) 
+                    d_plus = ti.min(d+1, self.disparities - 1)
+                    l2 = minimum_cost[y-1, x-1, d_minus] + p1
+                    l3 = minimum_cost[y-1, x-1, d_plus] + p1
 
-                l4 = min_cost_last + p2
+                    l4 = min_cost_last + p2
 
-                tmp_a = ti.min(l1, l2)
-                tmp_b = ti.min(l3, l4)
-                tmp = ti.min(tmp_a, tmp_b)
-                minimum_cost[y, x, d] = cost_volume[y, x, d] + tmp - min_cost_last
+                    tmp_a = ti.min(l1, l2)
+                    tmp_b = ti.min(l3, l4)
+                    tmp = ti.min(tmp_a, tmp_b)
+                    minimum_cost[y, x, d] = cost_volume[y, x, d] + tmp - min_cost_last
 
     @timeit
     def aggregate_S(self):
@@ -230,7 +230,7 @@ class Ti_SGBM:
         if Direction.W in self.paths.paths:
             cur = self.aggregate_W()
             aggregation_volume += cur
-  
+
         if Direction.SE in self.paths.paths:
             cur = self.aggregate_SE()
             aggregation_volume += cur
@@ -247,6 +247,7 @@ class Ti_SGBM:
             cur = self.aggregate_NE()
             aggregation_volume += cur
 
+        print("aggregation_volume mean: ", aggregation_volume.mean())
         return aggregation_volume
 
 

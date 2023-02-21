@@ -7,7 +7,8 @@
         "mask_mode": 3,
         "process_mode": 1,
         "unique_ratio": 0,
-        "sub_pixel_enable": 0
+        "sub_pixel_enable": 1,
+        "guided_filter_enable": 0
     },
     "data": {
         "left_fn": "001_left.png",
