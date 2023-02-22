@@ -14,7 +14,6 @@ class Mask_mode(IntEnum):
     MODE_3x3 = 2
     MODE_5x5 = 3
     MODE_7x7 = 4
-    MODE_9x9 = 5
 
 
 class Process_mode(IntEnum):
@@ -67,8 +66,8 @@ class Firmware:
             param.check_unique_enable = True
 
         if self.config['dense_mode'] == Dense_mode.MODE_0:
-            param.p1 = 5
-            param.p2 = 50
+            param.p1 = 10
+            param.p2 = 150
         elif self.config['dense_mode'] == Dense_mode.MODE_1:
             param.p1 = 15
             param.p2 = 50
@@ -101,8 +100,9 @@ class Firmware:
         elif self.config['mask_mode'] == Mask_mode.MODE_7x7:
             param.cost_k_size = 7
         else:
-            param.cost_k_size = 9
+            raise ValueError("invalid mask mode")
 
         param.super_pixel_enable = self.config["sub_pixel_enable"]
+        param.guided_filter_enable = self.config["guided_filter_enable"]
 
         return param

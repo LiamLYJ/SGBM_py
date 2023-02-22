@@ -278,6 +278,9 @@ def compute_costs(left, right, parameters, save_images):
             right_img_census[y, x] = np.uint8(right_census)
             right_census_values[y, x] = right_census
 
+    # np.save("right_census.npy", right_census_values)
+    # np.save("left_census.npy", left_census_values)
+
     dusk = t.time()
     print('\t(done in {:.2f}s)'.format(dusk - dawn))
 
@@ -400,8 +403,14 @@ def sgm():
 
     print('\nStarting left aggregation computation...')
     left_aggregation_volume = aggregate_costs(left_cost_volume, parameters, paths)
+
+    # np.save("path_all_gt.npy", left_aggregation_volume)
+
     print('\nStarting right aggregation computation...')
     right_aggregation_volume = aggregate_costs(right_cost_volume, parameters, paths)
+
+    # left_aggregation_volume = np.expand_dims(np.load("my_aggregation.npy"), -1)
+    # right_aggregation_volume = np.expand_dims(np.load("my_aggregation.npy"), -1)
 
     print('\nSelecting best disparities...')
     left_disparity_map = np.uint8(normalize(select_disparity(left_aggregation_volume), parameters))
@@ -431,97 +440,3 @@ def sgm():
 
 if __name__ == '__main__':
     sgm()
-
-
-        # path_id = 0 
-        # if Direction.S in self.paths.paths:
-        #     print("S start")
-        #     dawn = time.time()
-        #     for x in range(0, width):
-        #         south = cost_volume[0:height, x, :]
-        #         aggregation_volume[:, x, :, path_id] = self.get_path_cost(south, 1, self.param)
-        #     path_id += 1
-        #     dust = time.time()
-        #     print("S end in %fs"%(dust - dawn))
-        # if Direction.N in self.paths.paths:
-        #     print("N start")
-        #     dawn = time.time()
-        #     for x in range(0, width):
-        #         north = np.flip(cost_volume[0:height, x, :], axis=0)
-        #         aggregation_volume[:, x, :, path_id] = np.flip(self.get_path_cost(north, 1, self.param), axis=0)
-        #     path_id += 1
-        #     dust = time.time()
-        #     print("N end in %fs"%(dust - dawn))
-
-        # if Direction.E in self.paths.paths:
-        #     print("E start")
-        #     dawn = time.time()
-        #     for y in range(0, height):
-        #         east = cost_volume[y, 0:width, :]
-        #         aggregation_volume[y, :, :, path_id] = self.get_path_cost(east, 1, self.param)
-        #     path_id += 1
-        #     dust = time.time()
-        #     print("E end in %fs"%(dust - dawn))
-        # if Direction.W in self.paths.paths:
-        #     print("W end")
-        #     dawn = time.time()
-        #     for y in range(0, height):
-        #         west = np.flip(cost_volume[y, 0:width, :], axis=0)
-        #         aggregation_volume[y, :, :, path_id] = np.flip(self.get_path_cost(west, 1, self.param), axis=0)
-        #     path_id += 1
-        #     dust = time.time()
-        #     print("W end in %fs"%(dust - dawn))
-
-        # if Direction.SE in self.paths.paths:
-        #     print("SE start")
-        #     dawn = time.time()
-        #     for offset in range(start, end):
-        #         south_east = cost_volume.diagonal(offset=offset).T
-        #         dim = south_east.shape[0]
-        #         y_se_idx, x_se_idx = self.get_indices(offset, dim, Direction.SE, None)
-        #         aggregation_volume[y_se_idx, x_se_idx, :, path_id] = self.get_path_cost(south_east, 1, self.param)
-        #     path_id += 1
-        #     dust = time.time()
-        #     print("SE end in %fs"%(dust - dawn))
-        # if Direction.NW in self.paths.paths:
-        #     print("NW start")
-        #     dawn = time.time()
-        #     for offset in range(start, end):
-        #         south_east = cost_volume.diagonal(offset=offset).T
-        #         north_west = np.flip(south_east, axis=0)
-        #         dim = south_east.shape[0]
-        #         y_se_idx, x_se_idx = self.get_indices(offset, dim, Direction.SE, None)
-        #         y_nw_idx = np.flip(y_se_idx, axis=0)
-        #         x_nw_idx = np.flip(x_se_idx, axis=0)
-        #         aggregation_volume[y_nw_idx, x_nw_idx, :, path_id] = self.get_path_cost(north_west, 1, self.param)
-        #     path_id += 1
-        #     dust = time.time()
-        #     print("NW end in %fs"%(dust - dawn))
-
-        # if Direction.SW in self.paths.paths:
-        #     print("SW start")
-        #     dawn = time.time()
-        #     for offset in range(start, end):
-        #         south_west = np.flipud(cost_volume).diagonal(offset=offset).T
-        #         dim = south_west.shape[0]
-        #         y_sw_idx, x_sw_idx = self.get_indices(offset, dim, Direction.SW, height - 1)
-        #         aggregation_volume[y_sw_idx, x_sw_idx, :, path_id] = self.get_path_cost(south_west, 1, self.param)
-        #     path_id += 1
-        #     dust = time.time()
-        #     print("SW end in %fs"%(dust - dawn))
-        # if Direction.NE in self.paths.paths:
-        #     print("NE start")
-        #     dawn = time.time()
-        #     for offset in range(start, end):
-        #         south_west = np.flipud(cost_volume).diagonal(offset=offset).T
-        #         north_east = np.flip(south_west, axis=0)
-        #         dim = south_west.shape[0]
-        #         y_sw_idx, x_sw_idx = self.get_indices(offset, dim, Direction.SW, height - 1)
-        #         y_ne_idx = np.flip(y_sw_idx, axis=0)
-        #         x_ne_idx = np.flip(x_sw_idx, axis=0)
-        #         aggregation_volume[y_ne_idx, x_ne_idx, :, path_id] = self.get_path_cost(north_east, 1, self.param)
-        #     dust = time.time()
-        #     print("NE end in %fs"%(dust - dawn))
-
-        # return aggregation_volume
-

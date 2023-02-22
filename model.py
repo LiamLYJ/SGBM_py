@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 # from torch.profiler import profile, ProfilerActivity, record_function
-import taichi as ti
+# import taichi as ti
 
 from utils import filter2D, get_gaussian_kernel, get_time
 from sgbm_core import Ti_SGBM, SGBM
@@ -28,10 +28,11 @@ class Param:
         self.p2 = 150
         self.min_disparity = 0
         self.max_disparity = 64
-        self.super_pixel_enable = False
+        self.sub_pixel_enable = False
         self.check_unique_enable = True
         self.unique_ratio = 0.1
         self.median_filter_enable = True
+        self.guided_filter_enable = False
         self.filter_k_size= 5
 
 
@@ -109,8 +110,6 @@ class Model:
         return img
 
     def compute_cost(self, left, right):
-        # left = torch.from_numpy(left)
-        # right = torch.from_numpy(right)
 
         disp_range = self.param.max_disparity - self.param.min_disparity
         costs = torch.zeros([self.H, self.W, disp_range], device=self.device)
@@ -121,7 +120,16 @@ class Model:
             right_cur[:, (rad+d):(self.W-rad)] = right[:, rad:(self.W-rad-d)]
 
             if self.param.cost_mode == "census":
-                costs[..., d] = torch.bitwise_xor(left.to(torch.int64), right_cur.to(torch.int64))
+                cur_xor = torch.bitwise_xor(left.to(torch.int64), right_cur.to(torch.int64))
+                distance = torch.zeros([self.H, self.W], dtype=torch.uint8, device=self.device)
+                while not torch.all(cur_xor == 0):
+                    tmp = cur_xor - 1
+                    mask = cur_xor != 0
+                    cur_xor[mask] = torch.bitwise_and(cur_xor[mask], tmp[mask])
+                    distance[mask] = distance[mask] + 1
+                
+                costs[..., d] = distance
+
             else:
                 abs_data = torch.fabs(left - right_cur).astype(torch.uint8)
                 weights = torch.ones_like([self.param.cost_k_size, self.param.cost_k_size])
@@ -150,7 +158,7 @@ class Model:
 
         delta = np.zeros_like(min_idx)
         _, _, C = volume.shape
-        if self.param.super_pixel_enable:
+        if self.param.sub_pixel_enable:
             idx1 = np.clip(min_idx - 1, a_min=0, a_max=C-1)
             idx2 = np.clip(min_idx + 1, a_min=0, a_max=C-1)
             cost0 = self.index_select_2d(volume, min_idx)
@@ -194,11 +202,10 @@ class Model:
         dust = get_time()
         print("computed cost takes: %f\n"%(dust - dawn))
 
-        cost = cost.cpu()
-        cost = cost.numpy().astype(np.float32)        
         print("aggregating costs...")
+        cost = cost.cpu().numpy()
+        cost = cost.astype(np.float32)
         dawn = get_time()
-        # cost = np.load("left_cost_volume.npy")
         aggregation_volume = self.aggregate_costs(cost)
         dust = get_time()
         print("aggregation takes time: %f\n"%(dust - dawn))
@@ -215,6 +222,12 @@ class Model:
         print("compute disparity taks time: %f\n"%(dust - dawn))
 
         disparity = (255.0 * disparity / self.param.max_disparity).astype(np.uint8)
+
+        cv2.imwrite("check_res_no_post.png", disparity)
+
+        if self.param.guided_filter_enable:
+            guide = self.left.numpy().astype(np.uint8)
+            disparity = cv2.ximgproc.guidedFilter(guide=guide, src=disparity, radius=5, eps=2, dDepth=-1)
 
         if self.param.median_filter_enable:
             disparity = cv2.medianBlur(disparity, self.param.filter_k_size)
