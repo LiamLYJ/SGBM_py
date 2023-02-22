@@ -105,7 +105,7 @@ class Ti_SGBM:
     @ti.kernel
     def aggregate_NW2SE(self, minimum_cost: ti.types.ndarray(), cost_volume: ti.types.ndarray(), p1: ti.f32, p2: ti.f32):
         for line in range(self.height - 1):
-            for x in range(1, self.height - 1 - line):
+            for x in range(1, ti.min(self.width, self.height - 1 - line)):
                 y = x + line
                 min_cost_last = 1.0 * 2**30
                 for d in range(self.disparities):
@@ -127,7 +127,7 @@ class Ti_SGBM:
                     minimum_cost[y, x, d] = cost_volume[y, x, d] + tmp - min_cost_last
 
         for line in range(self.width - 2):
-            for y in range(1, self.width - 1 - line):
+            for y in range(1, ti.min(self.height, self.width - 1 - line)):
                 x = y + line + 1
                 min_cost_last = 1.0 * 2**30
                 for d in range(self.disparities):
